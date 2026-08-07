@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: TindaHalin Sync & Backend API
+  version: 1.0.0
+  description: Offline-first sync contract for TindaHalin POS-lite.
+paths:
+  /v1/sync/push:
+    post:
+      summary: Upload local outbox events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_id:
+                  type: string
+                idempotency_key:
+                  type: string
+                events:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Events processed
+  /v1/sync/pull:
+    get:
+      summary: Retrieve remote changes since cursor
+      parameters:
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Remote mutations list
+  /v1/reports/daily:
+    get:
+      summary: Store consolidated sales report
+      responses:
+        '200':
+          description: Summary report

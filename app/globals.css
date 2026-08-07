@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #05060a;
+    color: #cbd5e1;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom Immersive UI Glow Utilities & Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #05060a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #10b981;
+}
+
+.emerald-glow {
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+
+.amber-glow {
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+
+.bg-radial-blueprint {
+  background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, transparent 75%);
+}
