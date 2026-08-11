@@ -15,7 +15,9 @@ import {
   X,
   Edit2,
   Trash2,
+  Scan,
 } from 'lucide-react';
+import { BarcodeScannerModal } from '@/components/common/BarcodeScannerModal';
 
 interface ProductsScreenProps {
   products: Product[];
@@ -36,6 +38,7 @@ export function ProductsScreen({
 
   // Form State
   const [formName, setFormName] = useState('');
+  const [formBarcode, setFormBarcode] = useState('');
   const [formCategory, setFormCategory] = useState('noodles');
   const [formPrice, setFormPrice] = useState('15.00');
   const [formCost, setFormCost] = useState('11.50');
@@ -43,6 +46,7 @@ export function ProductsScreen({
   const [formItemType, setFormItemType] = useState<'retail' | 'dish'>('retail');
   const [formStockQty, setFormStockQty] = useState('20');
   const [formIsFavorite, setFormIsFavorite] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   // Waste Modal State
   const [wasteProductId, setWasteProductId] = useState<string | null>(null);
@@ -53,6 +57,7 @@ export function ProductsScreen({
     if (p) {
       setEditingProduct(p);
       setFormName(p.name);
+      setFormBarcode(p.barcode || '');
       setFormCategory(p.category);
       setFormPrice((p.price_centavos / 100).toString());
       setFormCost(p.cost_centavos ? (p.cost_centavos / 100).toString() : '');
@@ -63,6 +68,7 @@ export function ProductsScreen({
     } else {
       setEditingProduct(null);
       setFormName('');
+      setFormBarcode('');
       setFormCategory('noodles');
       setFormPrice('15.00');
       setFormCost('11.50');
@@ -81,6 +87,7 @@ export function ProductsScreen({
     await onSaveProduct({
       id: editingProduct?.id,
       name: formName,
+      barcode: formBarcode.trim() || undefined,
       category: formCategory,
       price_centavos: parseToCentavos(formPrice),
       cost_centavos: formCost ? parseToCentavos(formCost) : null,
@@ -109,16 +116,16 @@ export function ProductsScreen({
   });
 
   return (
-    <div className="pb-24 pt-2 max-w-7xl mx-auto px-2 md:px-4 space-y-3">
+    <div className="pb-24 pt-2 max-w-7xl mx-auto px-2 md:px-4 space-y-3 font-jakarta">
       {/* Top Header & Mode Toggle */}
-      <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className="bg-[#181d2a] border border-slate-800/80 p-3 rounded-2xl flex flex-wrap items-center justify-between gap-2 shadow-sm">
+        <div className="flex items-center gap-2 font-sub">
           <button
             onClick={() => setActiveSubTab('catalog')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
               activeSubTab === 'catalog'
-                ? 'bg-emerald-500 text-slate-950 shadow'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
+                ? 'bg-[#22c55e] text-slate-950 font-extrabold shadow-sm'
+                : 'bg-[#121620] text-slate-300 hover:text-white border border-slate-800/80'
             }`}
           >
             <Package className="w-4 h-4" />
@@ -126,10 +133,10 @@ export function ProductsScreen({
           </button>
           <button
             onClick={() => setActiveSubTab('carinderia')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
               activeSubTab === 'carinderia'
-                ? 'bg-emerald-500 text-slate-950 shadow'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
+                ? 'bg-[#22c55e] text-slate-950 font-extrabold shadow-sm'
+                : 'bg-[#121620] text-slate-300 hover:text-white border border-slate-800/80'
             }`}
           >
             <Utensils className="w-4 h-4" />
@@ -139,7 +146,7 @@ export function ProductsScreen({
 
         <button
           onClick={() => openAddModal()}
-          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black px-3 py-1.5 rounded-lg transition flex items-center gap-1 shadow"
+          className="bg-[#22c55e] hover:bg-[#16a34a] text-slate-950 text-xs font-extrabold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm font-jakarta"
         >
           <Plus className="w-4 h-4" />
           <span>Add New Product</span>
@@ -147,25 +154,25 @@ export function ProductsScreen({
       </div>
 
       {/* Search Input */}
-      <div className="relative">
+      <div className="relative font-sub">
         <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder={t.searchPlaceholder}
-          className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+          className="w-full pl-9 pr-3 py-2 bg-[#181d2a] border border-slate-800/80 rounded-xl text-sm text-white focus:outline-none focus:border-[#22c55e]"
         />
       </div>
 
       {/* CARINDERIA DAILY MENU SPECIFIC VIEW */}
       {activeSubTab === 'carinderia' ? (
-        <div className="space-y-3">
-          <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-xl">
-            <h3 className="font-bold text-xs text-amber-300 uppercase tracking-wider mb-1">
+        <div className="space-y-3 font-jakarta">
+          <div className="bg-[#181d2a] border border-slate-800/80 p-3.5 rounded-2xl shadow-sm">
+            <h3 className="font-extrabold text-xs text-amber-300 uppercase tracking-wider mb-1 font-jakarta">
               🍲 Today&apos;s Prepared Carinderia Servings
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-400 font-sub font-normal">
               Update prepared morning stock, mark dishes sold-out, or record end-of-day leftovers.
             </p>
           </div>
@@ -176,12 +183,12 @@ export function ProductsScreen({
               return (
                 <div
                   key={dish.id}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between space-y-2"
+                  className="bg-[#181d2a] border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between space-y-3 shadow-sm hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="font-bold text-sm text-white leading-tight">{dish.name}</h4>
-                      <p className="text-xs text-emerald-400 font-mono font-bold mt-0.5">
+                      <h4 className="font-extrabold text-sm text-white leading-tight font-jakarta">{dish.name}</h4>
+                      <p className="text-xs text-[#22c55e] font-extrabold mt-0.5 font-jakarta">
                         {formatCentavos(dish.price_centavos)} / {dish.base_unit}
                       </p>
                     </div>
@@ -192,33 +199,33 @@ export function ProductsScreen({
                           is_sold_out: !dish.is_sold_out,
                         })
                       }
-                      className={`text-xs font-bold px-2.5 py-1 rounded-full border transition ${
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition font-sub ${
                         isOut
                           ? 'bg-red-500/20 text-red-400 border-red-500/40'
-                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-[#22c55e]/20 text-[#22c55e] border-[#22c55e]/40'
                       }`}
                     >
                       {isOut ? t.soldOut : 'Available'}
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs bg-slate-800 p-2 rounded-lg font-mono">
-                    <span className="text-slate-400">Servings Remaining:</span>
-                    <span className="font-bold text-white">
+                  <div className="flex items-center justify-between text-xs bg-[#121620] p-2.5 rounded-xl border border-slate-800/80 font-sub">
+                    <span className="text-slate-400 font-medium">Servings Remaining:</span>
+                    <span className="font-extrabold text-white font-jakarta">
                       {formatMilliQty(dish.stock_qty_milli, dish.base_unit)}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center gap-2 pt-1 font-sub">
                     <button
                       onClick={() => setWasteProductId(dish.id)}
-                      className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 transition"
+                      className="flex-1 py-1.5 bg-[#121620] hover:bg-[#222938] text-slate-300 text-xs font-semibold rounded-xl border border-slate-800/80 transition"
                     >
                       {t.recordWaste}
                     </button>
                     <button
                       onClick={() => openAddModal(dish)}
-                      className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700"
+                      className="p-2 bg-[#121620] hover:bg-[#222938] text-slate-300 rounded-xl border border-slate-800/80 transition"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -230,10 +237,10 @@ export function ProductsScreen({
         </div>
       ) : (
         /* GENERAL PRODUCT CATALOG TABLE/GRID */
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow">
+        <div className="bg-[#181d2a] border border-slate-800/80 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-800 text-slate-400 uppercase text-[10px] tracking-wider font-mono border-b border-slate-700">
+              <thead className="bg-[#121620] text-slate-400 uppercase text-[10px] tracking-wider font-sub font-semibold border-b border-slate-800/80">
                 <tr>
                   <th className="p-3">Product Name</th>
                   <th className="p-3">Category</th>
@@ -243,23 +250,23 @@ export function ProductsScreen({
                   <th className="p-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className="divide-y divide-slate-800/80">
                 {filteredProducts.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-850 transition">
-                    <td className="p-3 font-semibold text-white">
+                  <tr key={p.id} className="hover:bg-[#121620] transition">
+                    <td className="p-3 font-bold text-white font-jakarta">
                       {p.name}
                       {p.item_type === 'dish' && (
-                        <span className="ml-2 text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">
+                        <span className="ml-2 text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-sub">
                           Dish
                         </span>
                       )}
                     </td>
-                    <td className="p-3 capitalize font-mono text-slate-400">{p.category}</td>
-                    <td className="p-3 font-mono">{formatCentavos(p.cost_centavos)}</td>
-                    <td className="p-3 font-mono font-bold text-emerald-400">
+                    <td className="p-3 capitalize font-sub text-slate-400">{p.category}</td>
+                    <td className="p-3 font-sub text-slate-300">{formatCentavos(p.cost_centavos)}</td>
+                    <td className="p-3 font-extrabold text-[#22c55e] font-jakarta">
                       {formatCentavos(p.price_centavos)}
                     </td>
-                    <td className="p-3 font-mono">
+                    <td className="p-3 font-sub">
                       <span
                         className={
                           p.stock_qty_milli <= (p.low_stock_qty_milli || 5000)
@@ -273,7 +280,7 @@ export function ProductsScreen({
                     <td className="p-3 text-right">
                       <button
                         onClick={() => openAddModal(p)}
-                        className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition"
+                        className="p-1.5 bg-[#121620] hover:bg-[#222938] text-slate-300 rounded-lg transition border border-slate-800/80"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -288,13 +295,13 @@ export function ProductsScreen({
 
       {/* ADD / EDIT PRODUCT MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-3 font-jakarta">
           <form
             onSubmit={handleFormSubmit}
-            className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-4 space-y-3 shadow-2xl"
+            className="bg-[#181d2a] border border-slate-800/80 rounded-2xl w-full max-w-md p-5 space-y-3.5 shadow-xl"
           >
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <h3 className="font-bold text-sm text-white">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h3 className="font-extrabold text-sm text-white font-jakarta">
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
               </h3>
               <button
@@ -306,7 +313,7 @@ export function ProductsScreen({
               </button>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2.5 font-sub">
               <div>
                 <label className="text-xs font-semibold text-slate-300 block mb-1">
                   Product Name *
@@ -317,8 +324,31 @@ export function ProductsScreen({
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="e.g. Lucky Me Pancit Canton"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-[#121620] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22c55e]"
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">
+                  Barcode / SKU
+                </label>
+                <div className="flex gap-2 font-sub">
+                  <input
+                    type="text"
+                    value={formBarcode}
+                    onChange={(e) => setFormBarcode(e.target.value)}
+                    placeholder="e.g. 4800016009012"
+                    className="flex-1 bg-[#121620] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22c55e]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowScanner(true)}
+                    className="bg-[#121620] hover:bg-[#222938] text-[#22c55e] border border-slate-800/80 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1 shadow-sm"
+                  >
+                    <Scan className="w-4 h-4 text-[#22c55e]" />
+                    <span>Scan</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -329,7 +359,7 @@ export function ProductsScreen({
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
                     placeholder="noodles, drinks, sud-an"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-[#121620] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22c55e]"
                   />
                 </div>
 
@@ -338,7 +368,7 @@ export function ProductsScreen({
                   <select
                     value={formUnit}
                     onChange={(e) => setFormUnit(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-[#121620] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22c55e]"
                   >
                     {UNIT_OPTIONS.map((u) => (
                       <option key={u.value} value={u.value}>
@@ -360,7 +390,7 @@ export function ProductsScreen({
                     required
                     value={formPrice}
                     onChange={(e) => setFormPrice(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-[#121620] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white font-bold font-jakarta focus:outline-none focus:border-[#22c55e]"
                   />
                 </div>
 
@@ -371,7 +401,7 @@ export function ProductsScreen({
                     step="0.25"
                     value={formCost}
                     onChange={(e) => setFormCost(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-[#121620] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white font-bold font-jakarta focus:outline-none focus:border-[#22c55e]"
                   />
                 </div>
               </div>
@@ -384,7 +414,7 @@ export function ProductsScreen({
                     step="1"
                     value={formStockQty}
                     onChange={(e) => setFormStockQty(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-[#121620] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white font-bold font-jakarta focus:outline-none focus:border-[#22c55e]"
                   />
                 </div>
 
@@ -393,7 +423,7 @@ export function ProductsScreen({
                   <select
                     value={formItemType}
                     onChange={(e) => setFormItemType(e.target.value as any)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-[#121620] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22c55e]"
                   >
                     <option value="retail">Sari-Sari Retail Item</option>
                     <option value="dish">Carinderia Prepared Dish</option>
@@ -404,7 +434,7 @@ export function ProductsScreen({
 
             <button
               type="submit"
-              className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl transition shadow mt-2"
+              className="w-full py-2.5 bg-[#22c55e] hover:bg-[#16a34a] text-slate-950 font-extrabold text-xs rounded-xl transition shadow-sm mt-2 font-jakarta"
             >
               Save Product
             </button>
@@ -454,6 +484,18 @@ export function ProductsScreen({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Barcode Scanner Modal */}
+      {showScanner && (
+        <BarcodeScannerModal
+          title="Scan Product Barcode"
+          onScanSuccess={(code) => {
+            setFormBarcode(code);
+            setShowScanner(false);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
       )}
     </div>
   );
