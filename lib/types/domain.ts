@@ -165,6 +165,9 @@ export interface StoreConfig {
   phone?: string;
   qrph_account_name?: string;
   qrph_number?: string;
+  receipt_footer_note?: string;
+  tax_id_or_tin?: string;
+  receipt_logo_url?: string;
 }
 
 export interface Category {

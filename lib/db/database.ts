@@ -33,6 +33,7 @@ interface LocalDBState {
   customers: Customer[];
   credit_entries: CreditEntry[];
   sync_outbox: SyncOutbox[];
+  daily_summaries?: DailySummary[];
 }
 
 export class DatabaseService {
@@ -146,13 +147,62 @@ export class DatabaseService {
       customers: seedCustomers,
       credit_entries: [],
       sync_outbox: [],
+      daily_summaries: [],
     };
+  }
+
+  private broadcastChannel: BroadcastChannel | null = null;
+
+  private getBroadcastChannel(): BroadcastChannel | null {
+    if (typeof window === 'undefined') return null;
+    if (!this.broadcastChannel && 'BroadcastChannel' in window) {
+      this.broadcastChannel = new BroadcastChannel('tindahalin_multi_tab_sync');
+    }
+    return this.broadcastChannel;
+  }
+
+  private notifyTabs(action: string = 'DB_MUTATED') {
+    try {
+      const channel = this.getBroadcastChannel();
+      if (channel) {
+        channel.postMessage({ type: 'SYNC_UPDATE', action, timestamp: Date.now() });
+      }
+    } catch (err) {
+      // Ignore channel errors if unsupported
+    }
   }
 
   private saveToStorage(): void {
     if (typeof window !== 'undefined' && this.state) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+      this.notifyTabs();
     }
+  }
+
+  // --- OUTBOX & SYNC ---
+  public async getSyncOutbox(): Promise<SyncOutbox[]> {
+    await this.init();
+    return [...(this.state!.sync_outbox || [])];
+  }
+
+  public async getPendingOutboxCount(): Promise<number> {
+    await this.init();
+    return (this.state!.sync_outbox || []).filter((o) => !o.synced_at).length;
+  }
+
+  public async flushSyncOutbox(): Promise<number> {
+    await this.init();
+    const now = new Date().toISOString();
+    let count = 0;
+    this.state!.sync_outbox = (this.state!.sync_outbox || []).map((o) => {
+      if (!o.synced_at) {
+        count++;
+        return { ...o, synced_at: now };
+      }
+      return o;
+    });
+    this.saveToStorage();
+    return count;
   }
 
   // --- STORE ---
@@ -789,6 +839,87 @@ export class DatabaseService {
         self.saveToStorage();
       },
     };
+  }
+
+  // --- MONTHLY SALES ROLLUP & ARCHIVING ---
+  public async archiveOldSales(
+    monthsToKeep: number = 3
+  ): Promise<{ archivedCount: number; totalGrossCentavos: number }> {
+    await this.init();
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - monthsToKeep);
+    const cutoffIso = cutoffDate.toISOString();
+
+    const oldSales = (this.state!.sales || []).filter(
+      (s) => (s.sold_at || s.created_at) < cutoffIso && s.status === 'completed'
+    );
+
+    if (oldSales.length === 0) {
+      return { archivedCount: 0, totalGrossCentavos: 0 };
+    }
+
+    const totalGross = oldSales.reduce((acc, s) => acc + s.total_centavos, 0);
+
+    // Group old sales by month key (e.g. "2026-05") to create/update monthly rollup records in daily_summaries
+    const monthGroups: Record<
+      string,
+      { gross: number; cash: number; qr: number; credit: number; count: number }
+    > = {};
+
+    for (const s of oldSales) {
+      const monthKey = (s.sold_at || s.created_at).slice(0, 7) + '-MONTHLY-ROLLUP';
+      if (!monthGroups[monthKey]) {
+        monthGroups[monthKey] = { gross: 0, cash: 0, qr: 0, credit: 0, count: 0 };
+      }
+      monthGroups[monthKey].gross += s.total_centavos;
+      monthGroups[monthKey].count += 1;
+      if (s.payments) {
+        for (const p of s.payments) {
+          if (p.method === 'cash') monthGroups[monthKey].cash += p.amount_centavos;
+          else if (p.method === 'qrph') monthGroups[monthKey].qr += p.amount_centavos;
+          else if (p.method === 'credit') monthGroups[monthKey].credit += p.amount_centavos;
+        }
+      }
+    }
+
+    // Merge into daily_summaries as historical monthly rollups
+    if (!this.state!.daily_summaries) {
+      this.state!.daily_summaries = [];
+    }
+
+    for (const [monthKey, data] of Object.entries(monthGroups)) {
+      const existingIdx = this.state!.daily_summaries.findIndex((d) => d.date === monthKey);
+      const summary: DailySummary = {
+        date: monthKey,
+        total_gross_centavos: data.gross,
+        cash_centavos: data.cash,
+        qrph_centavos: data.qr,
+        credit_centavos: data.credit,
+        estimated_cost_centavos: Math.round(data.gross * 0.7),
+        estimated_gross_margin_centavos: Math.round(data.gross * 0.3),
+        transaction_count: data.count,
+        pending_qr_count: 0,
+        low_stock_count: 0,
+        closing_notes: `Archived Monthly Sales Summary (${monthKey})`,
+        closed_at: new Date().toISOString(),
+      };
+
+      if (existingIdx >= 0) {
+        this.state!.daily_summaries[existingIdx] = summary;
+      } else {
+        this.state!.daily_summaries.push(summary);
+      }
+    }
+
+    // Remove individual old sales & sale_items to compact storage
+    const oldSaleIds = new Set(oldSales.map((s) => s.id));
+    this.state!.sales = (this.state!.sales || []).filter((s) => !oldSaleIds.has(s.id));
+    this.state!.sale_items = (this.state!.sale_items || []).filter(
+      (si) => !oldSaleIds.has(si.sale_id)
+    );
+
+    this.saveToStorage();
+    return { archivedCount: oldSales.length, totalGrossCentavos: totalGross };
   }
 }
 

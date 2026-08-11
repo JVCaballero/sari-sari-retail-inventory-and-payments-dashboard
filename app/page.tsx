@@ -12,6 +12,7 @@ import { UtangLedgerScreen } from '@/components/utang/UtangLedgerScreen';
 import { AnalyticsScreen } from '@/components/analytics/AnalyticsScreen';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { UtangModal } from '@/components/utang/UtangModal';
+import { PinModal } from '@/components/common/PinModal';
 
 import {
   db,
@@ -59,6 +60,12 @@ export default function Home() {
   const [pendingCartTotal, setPendingCartTotal] = useState(0);
   const [onSelectUtangCustomer, setOnSelectUtangCustomer] = useState<((c: Customer) => void) | null>(null);
 
+  // Phase 3 Multi-User RBAC & Cloud Sync State
+  const [isCashierMode, setIsCashierMode] = useState(false);
+  const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinAction, setPinAction] = useState<'unlock_cashier' | 'open_settings' | 'open_analytics' | null>(null);
+
   const [isDbReady, setIsDbReady] = useState(false);
 
   // Load Database State
@@ -72,6 +79,7 @@ export default function Home() {
       const loadedConfig = await db.getStoreConfig();
       const loadedSummary = await db.getTodaySummary();
       const loadedMovements = await db.getInventoryMovements(30);
+      const loadedOutboxCount = await db.getPendingOutboxCount();
 
       const todayStr = new Date().toISOString().split('T')[0];
       const fetchedAllSales = await db.sales.toArray();
@@ -88,6 +96,7 @@ export default function Home() {
       setAllSales(fetchedAllSales);
       setRecentSales(todaySales);
       setMovements(loadedMovements);
+      setPendingOutboxCount(loadedOutboxCount);
       setIsDbReady(true);
     } catch (err) {
       console.error('Failed to load database state:', err);
@@ -102,8 +111,23 @@ export default function Home() {
       }
     };
     load();
+
+    // Multi-Tab Real-Time Sync via BroadcastChannel
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      channel = new BroadcastChannel('tindahalin_multi_tab_sync');
+      channel.onmessage = (event) => {
+        if (event.data && event.data.type === 'SYNC_UPDATE' && mounted) {
+          refreshData();
+        }
+      };
+    }
+
     return () => {
       mounted = false;
+      if (channel) {
+        channel.close();
+      }
     };
   }, [refreshData]);
 
@@ -200,6 +224,60 @@ export default function Home() {
     await refreshData();
   };
 
+  // Cashier Mode & PIN Authentication Handlers
+  const handleToggleCashierMode = () => {
+    if (isCashierMode) {
+      setPinAction('unlock_cashier');
+      setShowPinModal(true);
+    } else {
+      setIsCashierMode(true);
+    }
+  };
+
+  const handleOpenSettingsWithCheck = () => {
+    if (isCashierMode) {
+      setPinAction('open_settings');
+      setShowPinModal(true);
+    } else {
+      setShowSettings(true);
+    }
+  };
+
+  const handleTabChangeWithCheck = (tab: 'sell' | 'products' | 'inventory' | 'utang' | 'analytics' | 'today') => {
+    if (isCashierMode && (tab === 'analytics' || tab === 'inventory')) {
+      setPinAction('open_analytics');
+      setShowPinModal(true);
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
+  const handlePinSuccess = () => {
+    setShowPinModal(false);
+    if (pinAction === 'unlock_cashier') {
+      setIsCashierMode(false);
+    } else if (pinAction === 'open_settings') {
+      setShowSettings(true);
+    } else if (pinAction === 'open_analytics') {
+      setActiveTab('analytics');
+    }
+    setPinAction(null);
+  };
+
+  const handleFlushOutbox = async (): Promise<number> => {
+    const flushed = await db.flushSyncOutbox();
+    await refreshData();
+    return flushed;
+  };
+
+  const handleArchiveSales = async (
+    monthsToKeep: number
+  ): Promise<{ archivedCount: number; totalGrossCentavos: number }> => {
+    const res = await db.archiveOldSales(monthsToKeep);
+    await refreshData();
+    return res;
+  };
+
   return (
     <I18nProvider>
       <div className="min-h-screen bg-[#0e1117] text-slate-200 font-sans flex flex-col relative overflow-x-hidden">
@@ -208,7 +286,11 @@ export default function Home() {
           storeName={config.store_name}
           address={config.address}
           pendingQrCount={summary?.pending_qr_count || 0}
-          onOpenSettings={() => setShowSettings(true)}
+          pendingOutboxCount={pendingOutboxCount}
+          isCashierMode={isCashierMode}
+          onToggleCashierMode={handleToggleCashierMode}
+          onFlushOutbox={handleFlushOutbox}
+          onOpenSettings={handleOpenSettingsWithCheck}
         />
 
         {/* Main Content Area */}
@@ -267,7 +349,7 @@ export default function Home() {
                   summary={summary}
                   recentSales={recentSales}
                   onCloseDay={handleCloseDay}
-                  onNavigateToAnalytics={() => setActiveTab('analytics')}
+                  onNavigateToAnalytics={() => handleTabChangeWithCheck('analytics')}
                 />
               )}
             </>
@@ -275,7 +357,19 @@ export default function Home() {
         </main>
 
         {/* Bottom Navigation */}
-        <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+        <Navigation activeTab={activeTab} setActiveTab={handleTabChangeWithCheck} />
+
+        {/* Owner PIN Authentication Modal */}
+        {showPinModal && (
+          <PinModal
+            correctPin="1234"
+            onSuccess={handlePinSuccess}
+            onClose={() => {
+              setShowPinModal(false);
+              setPinAction(null);
+            }}
+          />
+        )}
 
         {/* Utang Ledger Modal */}
         {showUtangModal && (
@@ -292,6 +386,9 @@ export default function Home() {
         {showSettings && (
           <SettingsModal
             config={config}
+            pendingOutboxCount={pendingOutboxCount}
+            onFlushOutbox={handleFlushOutbox}
+            onArchiveSales={handleArchiveSales}
             onUpdateConfig={handleUpdateConfig}
             onExportBackup={handleExportBackup}
             onImportBackup={handleImportBackup}

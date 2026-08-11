@@ -19,6 +19,9 @@ import {
 
 interface SettingsModalProps {
   config: StoreConfig;
+  pendingOutboxCount?: number;
+  onFlushOutbox?: () => Promise<number>;
+  onArchiveSales?: (monthsToKeep: number) => Promise<{ archivedCount: number; totalGrossCentavos: number }>;
   onUpdateConfig: (updated: Partial<StoreConfig>) => Promise<void>;
   onExportBackup: () => void;
   onImportBackup: (jsonString: string) => Promise<boolean>;
@@ -27,6 +30,9 @@ interface SettingsModalProps {
 
 export function SettingsModal({
   config,
+  pendingOutboxCount = 0,
+  onFlushOutbox,
+  onArchiveSales,
   onUpdateConfig,
   onExportBackup,
   onImportBackup,
@@ -36,12 +42,46 @@ export function SettingsModal({
   const [storeName, setStoreName] = useState(config.store_name);
   const [address, setAddress] = useState(config.address || '');
   const [phone, setPhone] = useState(config.phone || '');
+  const [taxId, setTaxId] = useState(config.tax_id_or_tin || '');
+  const [footerNote, setFooterNote] = useState(config.receipt_footer_note || 'Salamat sa pagtangkilik! Babalik po kayo.');
+  const [logoUrl, setLogoUrl] = useState(config.receipt_logo_url || '');
   const [qrName, setQrName] = useState(config.qrph_account_name || '');
   const [qrNumber, setQrNumber] = useState(config.qrph_number || '');
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [archiveStatus, setArchiveStatus] = useState<string | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  const handleFlushClick = async () => {
+    if (!onFlushOutbox) return;
+    setSyncStatus('Syncing offline sales outbox to cloud...');
+    const flushed = await onFlushOutbox();
+    setSyncStatus(`✅ Successfully synced ${flushed} offline transaction(s) to cloud!`);
+    setTimeout(() => setSyncStatus(null), 3000);
+  };
+
+  const handleArchiveClick = async (months: number) => {
+    if (!onArchiveSales) return;
+    setIsArchiving(true);
+    setArchiveStatus(`Compacting transactions older than ${months} month(s)...`);
+    try {
+      const result = await onArchiveSales(months);
+      if (result.archivedCount > 0) {
+        setArchiveStatus(`✅ Archived ${result.archivedCount} old sales into monthly summary rollups!`);
+      } else {
+        setArchiveStatus(`ℹ️ No sales older than ${months} month(s) found to archive.`);
+      }
+    } catch (err) {
+      console.error(err);
+      setArchiveStatus('❌ Failed to archive sales.');
+    } finally {
+      setIsArchiving(false);
+      setTimeout(() => setArchiveStatus(null), 4000);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +91,9 @@ export function SettingsModal({
         store_name: storeName,
         address,
         phone,
+        tax_id_or_tin: taxId,
+        receipt_footer_note: footerNote,
+        receipt_logo_url: logoUrl,
         qrph_account_name: qrName,
         qrph_number: qrNumber,
       });
@@ -174,6 +217,46 @@ export function SettingsModal({
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 border-t border-slate-800/60">
+              <div>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">
+                  TIN / Business Permit #
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. TIN: 123-456-789-000"
+                  value={taxId}
+                  onChange={(e) => setTaxId(e.target.value)}
+                  className="w-full bg-[#181d2a] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22c55e]"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">
+                  Thermal Printer Logo URL (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://.../logo.png"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  className="w-full bg-[#181d2a] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22c55e]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-400 block mb-1">
+                Custom Thermal Receipt Footer Message
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Salamat sa pagtangkilik! Babalik po kayo."
+                value={footerNote}
+                onChange={(e) => setFooterNote(e.target.value)}
+                className="w-full bg-[#181d2a] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22c55e]"
+              />
+            </div>
           </div>
 
           {/* QR Ph Digital Setup */}
@@ -230,6 +313,85 @@ export function SettingsModal({
             </div>
           </div>
         </form>
+
+        {/* Cloud Outbox Sync Queue Section */}
+        <div className="bg-[#121620] border border-slate-800/80 p-3.5 rounded-xl space-y-3 font-sub">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-emerald-400" />
+              <h4 className="text-xs font-extrabold text-slate-300 uppercase tracking-wider font-jakarta">
+                Cloud Sync Outbox Queue
+              </h4>
+            </div>
+            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-sub font-bold">
+              {pendingOutboxCount} Pending
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed font-sub">
+            All offline sales, stock movements, and customer repayments are recorded locally first in an idempotent outbox queue, then automatically synced to cloud storage when internet is restored.
+          </p>
+
+          <div className="flex items-center justify-between pt-1 font-jakarta">
+            <button
+              onClick={handleFlushClick}
+              className="bg-[#22c55e] hover:bg-[#16a34a] text-slate-950 font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition shadow-sm"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Flush & Sync Outbox Now</span>
+            </button>
+          </div>
+
+          {syncStatus && (
+            <p className="text-xs font-sub font-semibold text-emerald-300 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+              {syncStatus}
+            </p>
+          )}
+        </div>
+
+        {/* Monthly Sales Rollup & Database Archiving Section */}
+        <div className="bg-[#121620] border border-slate-800/80 p-3.5 rounded-xl space-y-3 font-sub">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-amber-400" />
+              <h4 className="text-xs font-extrabold text-slate-300 uppercase tracking-wider font-jakarta">
+                Monthly Sales Rollup & Storage Compaction
+              </h4>
+            </div>
+            <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded font-sub font-semibold">
+              High Speed Maintenance
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed font-sub">
+            For high-volume sari-sari or carinderia stores processing hundreds of micro-transactions per day, compact historical transactions into lightweight monthly summaries while preserving all revenue metrics.
+          </p>
+
+          <div className="flex flex-wrap gap-2 pt-1 font-jakarta">
+            <button
+              type="button"
+              onClick={() => handleArchiveClick(3)}
+              disabled={isArchiving}
+              className="bg-[#181d2a] border border-slate-800/80 hover:border-amber-400 text-slate-200 text-xs font-bold px-3 py-2 rounded-xl transition shadow-sm disabled:opacity-50"
+            >
+              Archive Sales Older Than 3 Months
+            </button>
+            <button
+              type="button"
+              onClick={() => handleArchiveClick(1)}
+              disabled={isArchiving}
+              className="bg-[#181d2a] border border-slate-800/80 hover:border-amber-400 text-slate-200 text-xs font-bold px-3 py-2 rounded-xl transition shadow-sm disabled:opacity-50"
+            >
+              Archive Sales Older Than 1 Month
+            </button>
+          </div>
+
+          {archiveStatus && (
+            <p className="text-xs font-sub font-semibold text-amber-300 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+              {archiveStatus}
+            </p>
+          )}
+        </div>
 
         {/* Database Backup & Disaster Recovery */}
         <div className="bg-[#121620] border border-slate-800/80 p-3.5 rounded-xl space-y-3 font-sub">

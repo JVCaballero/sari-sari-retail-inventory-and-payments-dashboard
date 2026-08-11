@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { useState } from 'react';
@@ -17,6 +18,9 @@ export function ReceiptModal({ sale, config, onClose }: ReceiptModalProps) {
   const storeName = config?.store_name || 'TindaHalin Store';
   const address = config?.address || 'Local Neighborhood Store';
   const phone = config?.phone || '';
+  const taxId = config?.tax_id_or_tin || '';
+  const footerNote = config?.receipt_footer_note || 'Salamat sa pagtangkilik!';
+  const logoUrl = config?.receipt_logo_url || '';
 
   const formattedDate = new Date(sale.sold_at || sale.created_at).toLocaleString('en-PH', {
     dateStyle: 'medium',
@@ -28,6 +32,7 @@ export function ReceiptModal({ sale, config, onClose }: ReceiptModalProps) {
     text += `       ${storeName.toUpperCase()}\n`;
     if (address) text += `   ${address}\n`;
     if (phone) text += `   Tel: ${phone}\n`;
+    if (taxId) text += `   ${taxId}\n`;
     text += `==============================\n`;
     text += `Receipt #: ${sale.sale_number || sale.id.slice(0, 8)}\n`;
     text += `Date: ${formattedDate}\n`;
@@ -48,8 +53,8 @@ export function ReceiptModal({ sale, config, onClose }: ReceiptModalProps) {
       });
     }
     text += `==============================\n`;
-    text += `Thank you for shopping with us!\n`;
-    text += `* Management Record Only *\n`;
+    text += `${footerNote}\n`;
+    text += `* Store Management Record *\n`;
     return text;
   };
 
@@ -81,12 +86,18 @@ export function ReceiptModal({ sale, config, onClose }: ReceiptModalProps) {
         {/* Thermal Receipt Paper View */}
         <div className="p-6 overflow-y-auto bg-white text-slate-900 font-mono text-xs shadow-inner flex-1 select-text print:p-0 print:shadow-none">
           <div className="text-center space-y-1 pb-3 border-b border-dashed border-slate-400">
-            <div className="flex items-center justify-center gap-1 font-black text-sm uppercase text-slate-950">
-              <Store className="w-4 h-4" />
-              <span>{storeName}</span>
-            </div>
+            {logoUrl ? (
+              <img src={logoUrl} alt="Store Logo" className="h-10 mx-auto object-contain mb-1" />
+            ) : (
+              <div className="flex items-center justify-center gap-1 font-black text-sm uppercase text-slate-950">
+                <Store className="w-4 h-4" />
+                <span>{storeName}</span>
+              </div>
+            )}
+            {logoUrl && <p className="font-black text-xs uppercase text-slate-950">{storeName}</p>}
             {address && <p className="text-[10px] text-slate-600">{address}</p>}
             {phone && <p className="text-[10px] text-slate-600">Tel: {phone}</p>}
+            {taxId && <p className="text-[10px] text-slate-600 font-medium">{taxId}</p>}
             <p className="text-[10px] text-slate-500 font-bold mt-1">OFFLINE POS RECEIPT</p>
           </div>
 
@@ -158,7 +169,7 @@ export function ReceiptModal({ sale, config, onClose }: ReceiptModalProps) {
 
           {/* Footer Disclaimer */}
           <div className="pt-4 text-center space-y-1 text-[9px] text-slate-500">
-            <p className="font-bold">Salamat sa pagtangkilik!</p>
+            <p className="font-bold">{footerNote}</p>
             <p className="italic text-[8px]">Store Management Record • Non-BIR Official Receipt</p>
           </div>
         </div>
