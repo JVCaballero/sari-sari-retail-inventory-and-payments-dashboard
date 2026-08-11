@@ -49,28 +49,28 @@ export function UtangModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3">
-      <div className="bg-[#0a0c14] border border-slate-800 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl relative">
-        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
+    <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-3 font-jakarta">
+      <div className="bg-[#181d2a] border border-slate-800/80 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-xl relative">
+        <div className="flex justify-between items-center border-b border-slate-800/80 pb-3">
+          <div className="flex items-center gap-2 font-jakarta">
             <UserCheck className="w-5 h-5 text-amber-400" />
-            <h3 className="font-bold text-base text-white">Suki Utang Ledger</h3>
+            <h3 className="font-extrabold text-base text-white">Suki Utang Ledger</h3>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white">
             ✕
           </button>
         </div>
 
-        <div className="bg-[#05060a] p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs font-mono">
+        <div className="bg-[#121620] p-3 rounded-xl border border-slate-800/80 flex justify-between items-center text-xs font-sub">
           <span className="text-slate-400">Transaction Amount to Credit:</span>
-          <span className="font-bold text-amber-400 text-sm">
+          <span className="font-black text-amber-400 text-sm font-jakarta">
             {formatCentavos(cartTotalCentavos)}
           </span>
         </div>
 
         {!showAddForm ? (
           <>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 font-sub">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                 <input
@@ -78,12 +78,12 @@ export function UtangModal({
                   placeholder="Search Suki customer name or phone..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full bg-[#0d111c] border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full bg-[#121620] border border-slate-800/80 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-sub"
                 />
               </div>
               <button
                 onClick={() => setShowAddForm(true)}
-                className="bg-amber-500/10 border border-amber-500/30 text-amber-400 px-3 py-2 rounded-xl text-xs font-bold hover:bg-amber-500/20 flex items-center gap-1"
+                className="bg-[#121620] hover:bg-[#222938] border border-slate-800/80 text-amber-400 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1 font-sub shadow-sm transition"
               >
                 <Plus className="w-4 h-4" />
                 <span>New Suki</span>
@@ -92,7 +92,7 @@ export function UtangModal({
 
             <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
               {filtered.length === 0 ? (
-                <div className="text-center py-6 text-slate-500 text-xs">
+                <div className="text-center py-6 text-slate-500 text-xs font-sub">
                   No Suki customer found matching &quot;{search}&quot;
                 </div>
               ) : (
@@ -108,15 +108,15 @@ export function UtangModal({
                       className={`p-3 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
                         wouldExceedLimit
                           ? 'bg-red-500/10 border-red-500/30 text-slate-300'
-                          : 'bg-[#0d111c] border-slate-800 hover:border-amber-400/50 text-slate-200'
+                          : 'bg-[#121620] border-slate-800/80 hover:border-amber-400/50 text-slate-200'
                       }`}
                     >
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-sm">{c.display_name}</span>
-                          {c.phone && <span className="text-[10px] text-slate-500 font-mono">{c.phone}</span>}
+                          <span className="font-extrabold text-white text-sm font-jakarta">{c.display_name}</span>
+                          {c.phone && <span className="text-[10px] text-slate-500 font-sub">{c.phone}</span>}
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] font-mono mt-1 text-slate-400">
+                        <div className="flex items-center gap-2 text-[10px] font-sub mt-1 text-slate-400">
                           <span>Current Owed: {formatCentavos(balance)}</span>
                           <span>| Limit: {formatCentavos(limit)}</span>
                         </div>
@@ -124,12 +124,12 @@ export function UtangModal({
 
                       <div className="text-right">
                         {wouldExceedLimit ? (
-                          <div className="text-[10px] text-red-400 font-bold flex items-center gap-1 font-mono">
+                          <div className="text-[10px] text-red-400 font-bold flex items-center gap-1 font-sub">
                             <ShieldAlert className="w-3.5 h-3.5" />
                             <span>EXCEEDS LIMIT</span>
                           </div>
                         ) : (
-                          <span className="bg-amber-400 text-slate-950 font-black px-2.5 py-1 rounded text-[11px] font-mono">
+                          <span className="bg-amber-400 text-slate-950 font-extrabold px-3 py-1 rounded-lg text-[11px] font-jakarta shadow-sm">
                             SELECT
                           </span>
                         )}
@@ -141,8 +141,8 @@ export function UtangModal({
             </div>
           </>
         ) : (
-          <form onSubmit={handleCreateCustomer} className="space-y-3">
-            <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider font-mono">
+          <form onSubmit={handleCreateCustomer} className="space-y-3 font-sub">
+            <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider font-jakarta">
               Register New Suki Customer
             </h4>
             <div>
@@ -155,7 +155,7 @@ export function UtangModal({
                 placeholder="e.g. Aling Nena"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="w-full bg-[#0d111c] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                className="w-full bg-[#121620] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-sub"
               />
             </div>
             <div>
@@ -167,22 +167,22 @@ export function UtangModal({
                 placeholder="09171234567"
                 value={newPhone}
                 onChange={(e) => setNewPhone(e.target.value)}
-                className="w-full bg-[#0d111c] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                className="w-full bg-[#121620] border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-sub"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2 font-jakarta">
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
-                className="px-3 py-2 text-slate-400 hover:text-white text-xs font-medium"
+                className="px-3 py-2 text-slate-400 hover:text-white text-xs font-semibold"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl"
+                className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs rounded-xl shadow-sm"
               >
                 Save & Select Suki
               </button>

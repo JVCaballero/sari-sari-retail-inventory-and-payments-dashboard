@@ -9,7 +9,15 @@ export interface TranslationDictionary {
   navSell: string;
   navProducts: string;
   navInventory: string;
+  navUtang: string;
   navToday: string;
+  navAnalytics: string;
+  
+  // New Feature Labels
+  printReceipt: string;
+  scanBarcode: string;
+  repaymentHistory: string;
+  partialPayment: string;
   
   // Transaction Workflow Labels
   newSale: string;
@@ -85,7 +93,14 @@ export const translations: Record<LanguageCode, TranslationDictionary> = {
     navSell: 'Sell',
     navProducts: 'Products/Menu',
     navInventory: 'Inventory',
+    navUtang: 'Suki Utang',
     navToday: 'Today',
+    navAnalytics: 'Analytics',
+    
+    printReceipt: 'Print Receipt',
+    scanBarcode: 'Scan Barcode',
+    repaymentHistory: 'Repayment Log',
+    partialPayment: 'Partial Payment',
     
     newSale: 'New sale',
     todaysSales: 'Today\'s sales',
@@ -149,7 +164,14 @@ export const translations: Record<LanguageCode, TranslationDictionary> = {
     navSell: 'Pabaligya',
     navProducts: 'Produkto/Putahe',
     navInventory: 'Karga/Stock',
+    navUtang: 'Utang sa Suki',
     navToday: 'Halin Karon',
+    navAnalytics: 'Pang-Analytics',
+    
+    printReceipt: 'I-print ang Resibo',
+    scanBarcode: 'I-scan ang Barcode',
+    repaymentHistory: 'Agi sa Bayad',
+    partialPayment: 'Tipik nga Bayad',
     
     newSale: 'Bag-ong baligya',
     todaysSales: 'Halin karon',
@@ -213,7 +235,14 @@ export const translations: Record<LanguageCode, TranslationDictionary> = {
     navSell: 'Benta',
     navProducts: 'Produkto/Menu',
     navInventory: 'Imbentaryo',
+    navUtang: 'Utang ng Suki',
     navToday: 'Benta Ngayon',
+    navAnalytics: 'Analytics',
+    
+    printReceipt: 'I-print ang Resibo',
+    scanBarcode: 'I-scan ang Barcode',
+    repaymentHistory: 'Tala ng Bayad',
+    partialPayment: 'Hating Bayad',
     
     newSale: 'Bagong benta',
     todaysSales: 'Benta ngayon',

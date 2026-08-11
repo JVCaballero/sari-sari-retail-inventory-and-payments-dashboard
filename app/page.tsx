@@ -8,6 +8,8 @@ import { SellScreen } from '@/components/sell/SellScreen';
 import { ProductsScreen } from '@/components/products/ProductsScreen';
 import { InventoryScreen } from '@/components/inventory/InventoryScreen';
 import { TodayScreen } from '@/components/today/TodayScreen';
+import { UtangLedgerScreen } from '@/components/utang/UtangLedgerScreen';
+import { AnalyticsScreen } from '@/components/analytics/AnalyticsScreen';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { UtangModal } from '@/components/utang/UtangModal';
 
@@ -22,6 +24,7 @@ import {
   Product,
   Category,
   Customer,
+  CreditEntry,
   Sale,
   DailySummary,
   StoreConfig,
@@ -31,13 +34,17 @@ import {
 } from '@/lib/types/domain';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'sell' | 'products' | 'inventory' | 'today'>('sell');
+  const [activeTab, setActiveTab] = useState<
+    'sell' | 'products' | 'inventory' | 'utang' | 'analytics' | 'today'
+  >('sell');
 
   // Domain State
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [creditEntries, setCreditEntries] = useState<CreditEntry[]>([]);
   const [recentSales, setRecentSales] = useState<Sale[]>([]);
+  const [allSales, setAllSales] = useState<Sale[]>([]);
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [config, setConfig] = useState<StoreConfig>({
     store_name: 'Aling Nena Store',
@@ -61,21 +68,24 @@ export default function Home() {
       const loadedProducts = await db.products.toArray();
       const loadedCategories = await db.categories.toArray();
       const loadedCustomers = await db.customers.toArray();
+      const loadedCreditEntries = await db.getCreditEntries();
       const loadedConfig = await db.getStoreConfig();
       const loadedSummary = await db.getTodaySummary();
       const loadedMovements = await db.getInventoryMovements(30);
 
       const todayStr = new Date().toISOString().split('T')[0];
-      const allSales = await db.sales.toArray();
-      const todaySales = allSales
+      const fetchedAllSales = await db.sales.toArray();
+      const todaySales = fetchedAllSales
         .filter((s) => s.sold_at.startsWith(todayStr))
         .sort((a, b) => new Date(b.sold_at).getTime() - new Date(a.sold_at).getTime());
 
       setProducts(loadedProducts);
       setCategories(loadedCategories);
       setCustomers(loadedCustomers);
+      setCreditEntries(loadedCreditEntries);
       setConfig(loadedConfig);
       setSummary(loadedSummary);
+      setAllSales(fetchedAllSales);
       setRecentSales(todaySales);
       setMovements(loadedMovements);
       setIsDbReady(true);
@@ -147,10 +157,15 @@ export default function Home() {
     setShowUtangModal(false);
   };
 
-  const handleCreateCustomer = async (name: string, phone?: string): Promise<Customer> => {
-    const created = await db.saveCustomer(name, phone);
+  const handleCreateCustomer = async (name: string, phone?: string, notes?: string): Promise<Customer> => {
+    const created = await db.saveCustomer(name, phone, notes);
     await refreshData();
     return created;
+  };
+
+  const handleRecordCreditPayment = async (customerId: string, amountCentavos: number, note: string) => {
+    await db.recordCreditPayment(customerId, amountCentavos, note);
+    await refreshData();
   };
 
   // Close Day Handler
@@ -187,10 +202,7 @@ export default function Home() {
 
   return (
     <I18nProvider>
-      <div className="min-h-screen bg-[#05060a] text-slate-300 font-sans flex flex-col relative overflow-x-hidden">
-        {/* Subtle radial blueprint background gradient */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,#1e293b,transparent)] opacity-20 pointer-events-none"></div>
-
+      <div className="min-h-screen bg-[#0e1117] text-slate-200 font-sans flex flex-col relative overflow-x-hidden">
         {/* Global System Header */}
         <Header
           storeName={config.store_name}
@@ -200,11 +212,11 @@ export default function Home() {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 px-2 md:px-6 py-3 relative z-10 max-w-7xl mx-auto w-full">
+        <main className="flex-1 px-2 md:px-6 py-4 relative z-10 max-w-7xl mx-auto w-full">
           {!isDbReady ? (
             <div className="flex flex-col items-center justify-center py-20 space-y-3">
-              <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin shadow-[0_0_10px_#10b981]"></div>
-              <p className="text-xs font-mono text-emerald-400">INITIALIZING_OFFLINE_DATABASE...</p>
+              <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-xs font-semibold text-emerald-400">Loading Store Database...</p>
             </div>
           ) : (
             <>
@@ -234,11 +246,28 @@ export default function Home() {
                 />
               )}
 
+              {activeTab === 'utang' && (
+                <UtangLedgerScreen
+                  customers={customers}
+                  creditEntries={creditEntries}
+                  onRecordPayment={handleRecordCreditPayment}
+                  onCreateCustomer={handleCreateCustomer}
+                />
+              )}
+
+              {activeTab === 'analytics' && (
+                <AnalyticsScreen
+                  sales={allSales}
+                  products={products}
+                />
+              )}
+
               {activeTab === 'today' && (
                 <TodayScreen
                   summary={summary}
                   recentSales={recentSales}
                   onCloseDay={handleCloseDay}
+                  onNavigateToAnalytics={() => setActiveTab('analytics')}
                 />
               )}
             </>

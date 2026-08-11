@@ -17,7 +17,12 @@ import {
   UserCheck,
   X,
   ShoppingBag,
+  Scan,
+  Printer,
 } from 'lucide-react';
+import { BarcodeScannerModal } from '@/components/common/BarcodeScannerModal';
+import { ReceiptModal } from '@/components/common/ReceiptModal';
+import { Sale } from '@/lib/types/domain';
 
 interface SellScreenProps {
   products: Product[];
@@ -54,6 +59,22 @@ export function SellScreen({
   const [refSuffix, setRefSuffix] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+
+  const handleBarcodeScanned = (barcode: string) => {
+    setShowScanner(false);
+    const found = products.find(
+      (p) => (p.barcode && p.barcode === barcode) || p.id === barcode
+    );
+    if (found) {
+      addToCart(found);
+      setSuccessBanner(`Added "${found.name}" to cart via camera barcode scan!`);
+      setTimeout(() => setSuccessBanner(null), 3000);
+    } else {
+      setSearchTerm(barcode);
+    }
+  };
 
   // Categories list
   const categories = useMemo(() => {
@@ -154,6 +175,49 @@ export function SellScreen({
     if (cart.length === 0) return;
     setIsSubmitting(true);
 
+    const saleAmount = totals.totalCentavos;
+    const paidAmount = paymentMethod === 'cash' ? cashReceivedCentavos || saleAmount : saleAmount;
+
+    const newSaleObj: Sale = {
+      id: `sale-${Date.now()}`,
+      store_id: 'default-store',
+      sale_number: `SL-${Math.floor(100000 + Math.random() * 900000)}`,
+      status: 'completed',
+      subtotal_centavos: totals.subtotalCentavos,
+      discount_centavos: totals.discountCentavos,
+      total_centavos: totals.totalCentavos,
+      customer_id: paymentMethod === 'credit' ? selectedCustomerId : null,
+      cashier_name: null,
+      closed_day: null,
+      sold_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      items: cart.map((c) => ({
+        id: `si-${Date.now()}-${c.product.id}`,
+        sale_id: `sale-${Date.now()}`,
+        product_id: c.product.id,
+        qty_milli: c.qty_milli,
+        unit_price_centavos: c.unit_price_centavos,
+        unit_cost_centavos: c.product.cost_centavos || null,
+        line_total_centavos: c.line_total_centavos,
+        product_name_snapshot: c.product.name,
+        unit_snapshot: c.product.base_unit,
+      })),
+      payments: [
+        {
+          id: `pay-${Date.now()}`,
+          sale_id: `sale-${Date.now()}`,
+          method: paymentMethod,
+          provider: paymentMethod === 'qrph' ? 'QR Ph' : null,
+          amount_centavos: paidAmount,
+          status: 'merchant_confirmed',
+          reference_suffix: refSuffix || null,
+          verification_source: null,
+          paid_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+        },
+      ],
+    };
+
     try {
       await onCompleteSale({
         cartItems: cart,
@@ -161,14 +225,14 @@ export function SellScreen({
         discountCentavos: totals.discountCentavos,
         totalCentavos: totals.totalCentavos,
         paymentMethod,
-        amountReceivedCentavos:
-          paymentMethod === 'cash' ? cashReceivedCentavos || totals.totalCentavos : totals.totalCentavos,
+        amountReceivedCentavos: paidAmount,
         customerId: paymentMethod === 'credit' ? selectedCustomerId : null,
         referenceSuffix: paymentMethod === 'qrph' ? refSuffix : null,
       });
 
+      setCompletedSale(newSaleObj);
       setSuccessBanner(
-        `Sale Completed! ${formatCentavos(totals.totalCentavos)} - ${
+        `Sale Completed! ${formatCentavos(saleAmount)} - ${
           paymentMethod === 'cash' ? `Change: ${formatCentavos(changeCentavos)}` : 'Recorded'
         }`
       );
@@ -178,7 +242,7 @@ export function SellScreen({
       setRefSuffix('');
       setSelectedCustomerId('');
 
-      setTimeout(() => setSuccessBanner(null), 4000);
+      setTimeout(() => setSuccessBanner(null), 5000);
     } catch (err) {
       console.error('Failed to complete sale', err);
     } finally {
@@ -190,50 +254,71 @@ export function SellScreen({
     <div className="pb-24 pt-2 max-w-7xl mx-auto px-2 md:px-4">
       {/* Success Notification */}
       {successBanner && (
-        <div className="mb-3 bg-emerald-600 text-slate-950 font-bold px-4 py-3 rounded-lg shadow-lg flex items-center justify-between text-sm animate-bounce">
+        <div className="mb-3 bg-emerald-600 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-lg flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-slate-950" />
             <span>{successBanner}</span>
           </div>
-          <button onClick={() => setSuccessBanner(null)} className="text-slate-950 hover:opacity-75">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {completedSale && (
+              <button
+                onClick={() => setCompletedSale(completedSale)}
+                className="bg-slate-950/20 hover:bg-slate-950/30 text-slate-950 px-2.5 py-1 rounded-lg text-xs font-black font-mono flex items-center gap-1"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Receipt</span>
+              </button>
+            )}
+            <button onClick={() => setSuccessBanner(null)} className="text-slate-950 hover:opacity-75">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 font-jakarta">
         {/* LEFT COLUMN: Catalog & Search (8 cols on desktop) */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-3">
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={t.searchPlaceholder}
-              className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
-            />
+          {/* Search bar with Camera Scanner */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={t.searchPlaceholder}
+                className="w-full pl-9 pr-3 py-2 bg-[#181d2a] border border-slate-800/80 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-[#22c55e] font-sub"
+              />
+            </div>
+            <button
+              onClick={() => setShowScanner(true)}
+              className="bg-[#181d2a] hover:bg-[#222938] text-[#22c55e] border border-slate-800/80 text-xs font-semibold px-3 py-2 rounded-xl flex items-center gap-1.5 transition font-sub shadow-sm"
+              title="Scan Barcode via Camera"
+            >
+              <Scan className="w-4 h-4 text-[#22c55e]" />
+              <span className="hidden sm:inline">Scan Barcode</span>
+            </button>
           </div>
 
           {/* Category Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs font-sub">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition ${
+              className={`px-3 py-1.5 rounded-full font-semibold whitespace-nowrap transition ${
                 selectedCategory === 'all'
-                  ? 'bg-emerald-500 text-slate-950 font-bold'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-[#22c55e] text-slate-950 shadow-sm'
+                  : 'bg-[#181d2a] text-slate-300 hover:bg-[#222938] border border-slate-800/80'
               }`}
             >
               {t.allCategories}
             </button>
             <button
               onClick={() => setSelectedCategory('favorites')}
-              className={`px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition flex items-center gap-1 ${
+              className={`px-3 py-1.5 rounded-full font-semibold whitespace-nowrap transition flex items-center gap-1 ${
                 selectedCategory === 'favorites'
-                  ? 'bg-emerald-500 text-slate-950 font-bold'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-[#22c55e] text-slate-950 shadow-sm'
+                  : 'bg-[#181d2a] text-slate-300 hover:bg-[#222938] border border-slate-800/80'
               }`}
             >
               <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
@@ -243,10 +328,10 @@ export function SellScreen({
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-full font-medium whitespace-nowrap capitalize transition ${
+                className={`px-3 py-1.5 rounded-full font-semibold whitespace-nowrap capitalize transition ${
                   selectedCategory === cat
-                    ? 'bg-emerald-500 text-slate-950 font-bold'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    ? 'bg-[#22c55e] text-slate-950 shadow-sm'
+                    : 'bg-[#181d2a] text-slate-300 hover:bg-[#222938] border border-slate-800/80'
                 }`}
               >
                 {cat}
@@ -264,17 +349,17 @@ export function SellScreen({
                 <div
                   key={product.id}
                   onClick={() => !isOut && addToCart(product)}
-                  className={`bg-slate-900 border rounded-xl p-2.5 flex flex-col justify-between cursor-pointer transition select-none relative ${
+                  className={`bg-[#181d2a] border rounded-xl p-3 flex flex-col justify-between cursor-pointer transition select-none relative shadow-sm hover:shadow-md ${
                     isOut
-                      ? 'border-red-900/50 opacity-60 bg-red-950/10'
+                      ? 'border-red-900/50 opacity-60 bg-[#121620]'
                       : cartItem
-                      ? 'border-emerald-500 ring-1 ring-emerald-500/50 bg-slate-850'
-                      : 'border-slate-800 hover:border-slate-700 bg-slate-900'
+                      ? 'border-[#22c55e] ring-1 ring-[#22c55e]/50 bg-[#181d2a]'
+                      : 'border-slate-800/80 hover:border-slate-700 bg-[#181d2a]'
                   }`}
                 >
                   {/* Category & favorite tag */}
                   <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                    <span className="capitalize bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">
+                    <span className="capitalize bg-[#121620] px-1.5 py-0.5 rounded text-slate-300 font-sub font-medium">
                       {product.category}
                     </span>
                     {product.is_favorite && (
@@ -283,33 +368,33 @@ export function SellScreen({
                   </div>
 
                   {/* Name */}
-                  <h3 className="font-semibold text-xs text-white line-clamp-2 mb-2 leading-tight">
+                  <h3 className="font-extrabold text-xs text-white line-clamp-2 mb-2 leading-tight font-jakarta">
                     {product.name}
                   </h3>
 
                   {/* Stock & Price */}
-                  <div className="mt-auto flex items-end justify-between pt-1 border-t border-slate-800">
+                  <div className="mt-auto flex items-end justify-between pt-1 border-t border-slate-800/80">
                     <div>
-                      <span className="text-[10px] block text-slate-400">
+                      <span className="text-[10px] block text-slate-400 font-sub font-normal">
                         {isOut ? (
-                          <span className="text-red-400 font-bold">{t.soldOut}</span>
+                          <span className="text-red-400 font-semibold">{t.soldOut}</span>
                         ) : (
                           <span>Stock: {formatMilliQty(product.stock_qty_milli, product.base_unit)}</span>
                         )}
                       </span>
-                      <span className="text-sm font-black text-emerald-400">
+                      <span className="text-sm font-extrabold text-[#22c55e] font-jakarta">
                         {formatCentavos(product.price_centavos)}
                       </span>
                     </div>
 
                     {cartItem ? (
-                      <div className="bg-emerald-500 text-slate-950 font-black text-xs px-2 py-1 rounded-lg">
+                      <div className="bg-[#22c55e] text-slate-950 font-black text-xs px-2 py-1 rounded-lg font-jakarta">
                         {milliToQty(cartItem.qty_milli)}
                       </div>
                     ) : (
                       <button
                         disabled={isOut}
-                        className="p-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 rounded-lg transition"
+                        className="p-1.5 bg-[#121620] hover:bg-[#22c55e] hover:text-slate-950 text-slate-300 rounded-lg transition"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -322,17 +407,17 @@ export function SellScreen({
         </div>
 
         {/* RIGHT COLUMN: Cart & Checkout Summary (4-5 cols) */}
-        <div className="lg:col-span-5 xl:col-span-4 bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between min-h-[420px]">
+        <div className="lg:col-span-5 xl:col-span-4 bg-[#181d2a] border border-slate-800/80 rounded-2xl p-3.5 flex flex-col justify-between min-h-[420px] shadow-sm">
           <div>
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-800/80 mb-2">
               <div className="flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4 text-emerald-400" />
-                <h2 className="font-bold text-sm text-white">{t.newSale}</h2>
+                <ShoppingBag className="w-4 h-4 text-[#22c55e]" />
+                <h2 className="font-extrabold text-sm text-white font-jakarta">{t.newSale}</h2>
               </div>
               {cart.length > 0 && (
                 <button
                   onClick={clearCart}
-                  className="text-xs text-slate-400 hover:text-red-400 flex items-center gap-1 transition"
+                  className="text-xs text-slate-400 hover:text-red-400 flex items-center gap-1 transition font-sub"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   {t.clearCart}
@@ -342,46 +427,46 @@ export function SellScreen({
 
             {/* Cart Items List */}
             {cart.length === 0 ? (
-              <div className="py-12 text-center text-slate-500 space-y-2">
+              <div className="py-12 text-center text-slate-500 space-y-2 font-sub">
                 <ShoppingBag className="w-10 h-10 mx-auto text-slate-700" />
-                <p className="text-xs font-medium">Cart is empty. Tap items to add.</p>
+                <p className="text-xs font-normal">Cart is empty. Tap items to add.</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                 {cart.map((item) => (
                   <div
                     key={item.product.id}
-                    className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60 flex items-center justify-between gap-2"
+                    className="bg-[#121620] p-2.5 rounded-xl border border-slate-800/80 flex items-center justify-between gap-2"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-white truncate">
+                      <p className="text-xs font-bold text-white truncate font-jakarta">
                         {item.product.name}
                       </p>
-                      <p className="text-[11px] text-slate-400 font-mono">
+                      <p className="text-[11px] text-slate-400 font-sub font-medium">
                         {formatCentavos(item.unit_price_centavos)} / {item.selected_unit_label}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-md p-1">
+                    <div className="flex items-center gap-1.5 bg-[#181d2a] border border-slate-800/80 rounded-lg p-1">
                       <button
                         onClick={() => updateCartItemQty(item.product.id, -1000)}
-                        className="p-1 hover:bg-slate-800 text-slate-300 rounded"
+                        className="p-1 hover:bg-[#222938] text-slate-300 rounded"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="text-xs font-bold text-white px-1 font-mono">
+                      <span className="text-xs font-extrabold text-white px-1 font-jakarta">
                         {milliToQty(item.qty_milli)}
                       </span>
                       <button
                         onClick={() => updateCartItemQty(item.product.id, 1000)}
-                        className="p-1 hover:bg-slate-800 text-slate-300 rounded"
+                        className="p-1 hover:bg-[#222938] text-slate-300 rounded"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
 
                     <div className="text-right">
-                      <p className="text-xs font-bold text-emerald-400">
+                      <p className="text-xs font-extrabold text-[#22c55e] font-jakarta">
                         {formatCentavos(item.line_total_centavos)}
                       </p>
                     </div>
@@ -392,20 +477,20 @@ export function SellScreen({
           </div>
 
           {/* Cart Footer Totals & Checkout Button */}
-          <div className="pt-3 border-t border-slate-800 mt-2 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-300 font-mono">
+          <div className="pt-3 border-t border-slate-800/80 mt-2 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-300 font-sub font-medium">
               <span>Subtotal:</span>
-              <span>{formatCentavos(totals.subtotalCentavos)}</span>
+              <span className="font-semibold text-white font-jakarta">{formatCentavos(totals.subtotalCentavos)}</span>
             </div>
-            <div className="flex items-center justify-between text-sm font-black text-white pt-1 border-t border-slate-800/60">
+            <div className="flex items-center justify-between text-sm font-extrabold text-white pt-1 border-t border-slate-800/60 font-jakarta">
               <span>TOTAL:</span>
-              <span className="text-emerald-400 text-base">{formatCentavos(totals.totalCentavos)}</span>
+              <span className="text-[#22c55e] text-base">{formatCentavos(totals.totalCentavos)}</span>
             </div>
 
             <button
               disabled={cart.length === 0}
               onClick={() => setShowCheckout(true)}
-              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-black text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+              className="w-full py-3 bg-[#22c55e] hover:bg-[#16a34a] disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-extrabold text-sm rounded-xl transition shadow-sm flex items-center justify-center gap-2 font-jakarta"
             >
               <span>{t.checkout}</span>
               <span>({formatCentavos(totals.totalCentavos)})</span>
@@ -416,10 +501,10 @@ export function SellScreen({
 
       {/* CHECKOUT MODAL */}
       {showCheckout && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-4 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <h3 className="font-bold text-base text-white">{t.checkout}</h3>
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-3 font-jakarta">
+          <div className="bg-[#181d2a] border border-slate-800/80 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h3 className="font-extrabold text-base text-white font-jakarta">{t.checkout}</h3>
               <button
                 onClick={() => setShowCheckout(false)}
                 className="text-slate-400 hover:text-white"
@@ -429,24 +514,24 @@ export function SellScreen({
             </div>
 
             {/* Total Amount Banner */}
-            <div className="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center">
-              <span className="text-xs text-slate-400 font-medium block">Total Payable Amount</span>
-              <span className="text-2xl font-black text-emerald-400">
+            <div className="bg-[#121620] p-3.5 rounded-xl border border-slate-800/80 text-center space-y-0.5">
+              <span className="text-xs text-slate-400 font-sub font-medium block">Total Payable Amount</span>
+              <span className="text-2xl font-black text-[#22c55e] font-jakarta">
                 {formatCentavos(totals.totalCentavos)}
               </span>
             </div>
 
             {/* Payment Method Selector */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 font-sub">
               <label className="text-xs font-semibold text-slate-300 block">Select Payment Method</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2 font-jakarta">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('cash')}
                   className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition ${
                     paymentMethod === 'cash'
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                      ? 'bg-[#22c55e]/20 border-[#22c55e] text-[#22c55e] shadow-sm'
+                      : 'bg-[#121620] border-slate-800/80 text-slate-400 hover:text-white'
                   }`}
                 >
                   <Banknote className="w-5 h-5" />
@@ -458,8 +543,8 @@ export function SellScreen({
                   onClick={() => setPaymentMethod('qrph')}
                   className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition ${
                     paymentMethod === 'qrph'
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                      ? 'bg-[#22c55e]/20 border-[#22c55e] text-[#22c55e] shadow-sm'
+                      : 'bg-[#121620] border-slate-800/80 text-slate-400 hover:text-white'
                   }`}
                 >
                   <QrCode className="w-5 h-5" />
@@ -471,8 +556,8 @@ export function SellScreen({
                   onClick={() => setPaymentMethod('credit')}
                   className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition ${
                     paymentMethod === 'credit'
-                      ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                      ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-sm'
+                      : 'bg-[#121620] border-slate-800/80 text-slate-400 hover:text-white'
                   }`}
                 >
                   <UserCheck className="w-5 h-5" />
@@ -483,29 +568,29 @@ export function SellScreen({
 
             {/* CASH FLOW */}
             {paymentMethod === 'cash' && (
-              <div className="space-y-2 bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+              <div className="space-y-2 bg-[#121620] p-3.5 rounded-xl border border-slate-800/80 font-sub">
                 <label className="text-xs font-medium text-slate-300 block">{t.amountReceived} (₱)</label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 font-jakarta">
                   <input
                     type="number"
                     step="1"
                     placeholder={(totals.totalCentavos / 100).toString()}
                     value={cashAmountInput}
                     onChange={(e) => setCashAmountInput(e.target.value)}
-                    className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono font-bold text-lg focus:outline-none focus:border-emerald-500"
+                    className="flex-1 bg-[#181d2a] border border-slate-800/80 rounded-lg px-3 py-2 text-white font-extrabold text-lg focus:outline-none focus:border-[#22c55e]"
                   />
                   <button
                     onClick={() => setCashAmountInput((totals.totalCentavos / 100).toString())}
-                    className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-lg"
+                    className="px-3 py-1 bg-[#181d2a] hover:bg-[#222938] border border-slate-800/80 text-slate-200 text-xs font-bold rounded-lg font-sub"
                   >
                     Exact
                   </button>
                 </div>
 
                 {/* Change calculation */}
-                <div className="flex justify-between items-center text-xs font-mono pt-1">
+                <div className="flex justify-between items-center text-xs font-sub pt-1">
                   <span className="text-slate-400">{t.change}:</span>
-                  <span className="text-base font-black text-amber-400">
+                  <span className="text-base font-black text-amber-400 font-jakarta">
                     {formatCentavos(changeCentavos)}
                   </span>
                 </div>
@@ -514,9 +599,9 @@ export function SellScreen({
 
             {/* QR PH FLOW */}
             {paymentMethod === 'qrph' && (
-              <div className="space-y-3 bg-slate-800/50 p-3 rounded-xl border border-slate-700 text-center">
+              <div className="space-y-3 bg-[#121620] p-3.5 rounded-xl border border-slate-800/80 text-center font-sub">
                 <p className="text-xs text-slate-300 font-semibold">{qrMerchantName || 'Store QR Ph Code'}</p>
-                <div className="bg-white p-2 rounded-xl inline-block shadow">
+                <div className="bg-white p-2 rounded-xl inline-block shadow-sm">
                   <img
                     src={qrImageUrl || 'https://picsum.photos/seed/qrph/300/300'}
                     alt="QR Ph Merchant Code"
@@ -531,19 +616,19 @@ export function SellScreen({
                   placeholder={t.refSuffix}
                   value={refSuffix}
                   onChange={(e) => setRefSuffix(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 font-mono"
+                  className="w-full bg-[#181d2a] border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 font-sub"
                 />
               </div>
             )}
 
             {/* UTANG / CREDIT FLOW */}
             {paymentMethod === 'credit' && (
-              <div className="space-y-2 bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+              <div className="space-y-2 bg-[#121620] p-3.5 rounded-xl border border-slate-800/80 font-sub">
                 <label className="text-xs font-medium text-slate-300 block">Select Customer (Suki)</label>
                 <select
                   value={selectedCustomerId}
                   onChange={(e) => setSelectedCustomerId(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                  className="w-full bg-[#181d2a] border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-sub"
                 >
                   <option value="">-- Choose Suki --</option>
                   {customers.map((c) => (
@@ -559,13 +644,29 @@ export function SellScreen({
             <button
               disabled={isSubmitting || (paymentMethod === 'credit' && !selectedCustomerId)}
               onClick={handleCheckoutSubmit}
-              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-black text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+              className="w-full py-3 bg-[#22c55e] hover:bg-[#16a34a] disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-black text-sm rounded-xl transition shadow-sm flex items-center justify-center gap-2 font-jakarta"
             >
               <CheckCircle2 className="w-5 h-5" />
               <span>{t.completeSale}</span>
             </button>
           </div>
         </div>
+      )}
+
+      {/* Camera Barcode Scanner Modal */}
+      {showScanner && (
+        <BarcodeScannerModal
+          onScanSuccess={handleBarcodeScanned}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
+      {/* ESC/POS Receipt Modal */}
+      {completedSale && (
+        <ReceiptModal
+          sale={completedSale}
+          onClose={() => setCompletedSale(null)}
+        />
       )}
     </div>
   );

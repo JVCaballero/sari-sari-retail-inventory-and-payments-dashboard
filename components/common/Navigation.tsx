@@ -2,9 +2,9 @@
 
 import React from 'react';
 import { useI18n } from '@/lib/i18n/context';
-import { ShoppingCart, Package, Layers, Calendar } from 'lucide-react';
+import { ShoppingCart, Package, Layers, Calendar, UserCheck, TrendingUp } from 'lucide-react';
 
-export type NavTab = 'sell' | 'products' | 'inventory' | 'today';
+export type NavTab = 'sell' | 'products' | 'inventory' | 'utang' | 'analytics' | 'today';
 
 interface NavigationProps {
   activeTab: NavTab;
@@ -33,6 +33,16 @@ export function Navigation({ activeTab, setActiveTab, cartCount = 0 }: Navigatio
       icon: Layers,
     },
     {
+      id: 'utang' as NavTab,
+      label: t.navUtang,
+      icon: UserCheck,
+    },
+    {
+      id: 'analytics' as NavTab,
+      label: t.navAnalytics,
+      icon: TrendingUp,
+    },
+    {
       id: 'today' as NavTab,
       label: t.navToday,
       icon: Calendar,
@@ -40,8 +50,8 @@ export function Navigation({ activeTab, setActiveTab, cartCount = 0 }: Navigatio
   ];
 
   return (
-    <nav className="bg-[#0a0c14]/95 backdrop-blur-md border-t border-slate-800/80 fixed bottom-0 left-0 right-0 z-40 shadow-2xl">
-      <div className="grid grid-cols-4 max-w-md md:max-w-xl mx-auto py-1.5 px-2">
+    <nav className="bg-[#121620] border-t border-slate-800/80 fixed bottom-0 left-0 right-0 z-40 shadow-sm font-jakarta">
+      <div className="grid grid-cols-6 max-w-lg md:max-w-2xl mx-auto py-2 px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -49,24 +59,21 @@ export function Navigation({ activeTab, setActiveTab, cartCount = 0 }: Navigatio
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`relative flex flex-col items-center justify-center py-2 px-1 transition-all rounded-xl ${
+              className={`relative flex flex-col items-center justify-center py-1.5 px-1 transition-all rounded-xl ${
                 isActive
-                  ? 'text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 border border-transparent'
+                  ? 'text-[#22c55e] font-extrabold'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <div className="relative">
-                <Icon className={`w-5 h-5 ${isActive ? 'scale-110 text-emerald-400' : 'text-slate-400'} transition-transform`} />
+                <Icon className={`w-5 h-5 ${isActive ? 'scale-110 text-[#22c55e]' : 'text-slate-400'} transition-transform`} />
                 {item.badge !== undefined && (
-                  <span className="absolute -top-1.5 -right-2.5 bg-emerald-500 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full min-w-[16px] text-center shadow-[0_0_8px_#10b981]">
+                  <span className="absolute -top-1.5 -right-2.5 bg-[#22c55e] text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full min-w-[16px] text-center font-jakarta shadow-sm">
                     {item.badge}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] font-mono mt-1 tracking-tight leading-none uppercase">{item.label}</span>
-              {isActive && (
-                <span className="absolute -bottom-1 w-6 h-0.5 bg-emerald-400 rounded-full shadow-[0_0_6px_#10b981]" />
-              )}
+              <span className={`text-[10px] md:text-[11px] font-sub ${isActive ? 'font-bold text-[#22c55e]' : 'font-medium text-slate-400'} mt-1 tracking-tight leading-none uppercase truncate max-w-[60px]`}>{item.label}</span>
             </button>
           );
         })}

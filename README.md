@@ -6,7 +6,7 @@
 
 ## 📌 Development Roadmap: Phases & Checkpoints
 
-### 🟢 Phase 1: Core Architecture & Offline Foundation (**COMPLETED — CURRENT STATE**)
+### 🟢 Phase 1: Core Architecture & Offline Foundation (**COMPLETED**)
 - [x] **Local Storage Engine**: Single-file IndexedDB / local database service (`/lib/db/database.ts`) with schema isolation and full offline fallback.
 - [x] **Trilingual Localization (i18n)**: English (EN), Tagalog/Filipino (FIL), and Cebuano/Bisaya (CEB) translation engine with immediate reactive switching.
 - [x] **Point of Sale (POS) Terminal**: 
@@ -23,11 +23,25 @@
 
 ---
 
-### 🟡 Phase 2: Enhanced Business Analytics & Multi-Terminal Sync (**PLANNED / NEXT**)
-- [ ] **Suki Credit Payment History**: Dedicated repayment log screen allowingpartial repayments (e.g., "Aling Nena paid ₱500 toward her ₱1,200 balance").
-- [ ] **Receipt Printer Integration**: ESC/POS thermal bluetooth/USB printer support for physical receipt printing.
-- [ ] **Barcode Scanner Camera Support**: In-browser camera barcode scanning (`html5-qrcode` integration) for instant item selection.
-- [ ] **Advanced Profit Analytics**: Cost of Goods Sold (COGS) vs Margin trend breakdown charts over 7-day, 30-day, and year-to-date spans.
+### 🟢 Phase 2: Enhanced Business Analytics, Receipts & Hardware Integrations (**COMPLETED — CURRENT STATE**)
+- [x] **Suki Credit Payment History & Repayment Ledger (`UtangLedgerScreen`)**:
+  - Dedicated Suki Directory with real-time balance tracking across all registered profiles.
+  - Complete chronological transaction history (credit charges vs repayments).
+  - Partial repayment entry modal with preset pills (₱50, ₱100, ₱200, ₱500) and custom note logs.
+  - One-click SMS/Messenger statement copy for reminding Sukis of pending balance.
+- [x] **Thermal Receipt & ESC/POS Engine (`ReceiptModal`)**:
+  - Authentically styled 58mm / 80mm thermal receipt modal for any sale.
+  - Browser `window.print()` trigger for ESC/POS hardware print support.
+  - Formatted text summary copy for digital receipt sharing via Messenger / SMS.
+- [x] **In-Browser Camera Barcode Scanner (`BarcodeScannerModal`)**:
+  - Built-in camera scanner powered by `html5-qrcode` with manual input fallback.
+  - Scan product barcodes directly in POS checkout for instant item add-to-cart.
+  - Scan product barcodes directly when creating or editing products in catalog.
+- [x] **Advanced Profit & COGS Analytics (`AnalyticsScreen`)**:
+  - Area trend charts for Revenue vs Gross Profit Margin powered by `recharts` (7-day & 30-day spans).
+  - Payment Method distribution pie chart (Cash vs QR Ph vs Suki Utang).
+  - Cost of Goods Sold (COGS) tracking and average basket size metrics.
+  - Top performing products ranking table by volume and gross revenue.
 
 ---
 
@@ -71,5 +85,5 @@
 ---
 
 ## 🏁 Current Checkpoint Summary
-> **Status**: **Phase 1 Complete & Verified Production Build Passing Green**  
-> All TypeScript definitions, i18n contexts, Dexie compatibility adapters, and Next.js static asset build workers are fully compiled without warnings or errors.
+> **Status**: **Phase 1 & Phase 2 Complete — Verified Production Build Passing Green**  
+> All Suki credit repayment logs, ESC/POS thermal receipts, camera barcode scanning (`html5-qrcode`), and COGS profit analytics (`recharts`) are implemented and fully verified.
